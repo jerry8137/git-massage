@@ -102,7 +102,7 @@ def main(
             "Action",
             choices=["c", "e", "r", "q"],
             default="c",
-            show_choices=False,
+            show_choices=True,
             show_default=False,
         ).lower()
 
