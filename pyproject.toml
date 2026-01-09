@@ -1,0 +1,25 @@
+[project]
+name = "git-massage"
+version = "0.1.0"
+description = "Automate semantic git commit messages using OpenAI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=2.14.0",
+    "rich>=14.2.0",
+    "tomli-w>=1.2.0",
+    "typer[all]>=0.21.1",
+]
+
+[project.scripts]
+git-massage = "git_massage.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "ruff>=0.14.11",
+]
