@@ -70,6 +70,76 @@ uv run git-massage --model gpt-4-turbo
 uv run git-massage --api-key sk-...
 ```
 
+### --print-only Mode (Editor Integration)
+
+For seamless integration with editors like Neovim, use the `--print-only` flag. This mode:
+- Prints only the raw commit message to stdout
+- Redirects all logs and spinners to stderr
+- Exits immediately after generation (no interactive prompt)
+
+```bash
+# Capture message to a file
+uv run git-massage --print-only > commit_message.txt
+
+# Use in a pipeline
+git commit -m "$(uv run git-massage --print-only)"
+```
+
+## Neovim Integration
+
+### Option 1: Floating Terminal (Interactive Mode)
+
+Use a terminal plugin like [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) to run the full interactive experience:
+
+```lua
+-- In your Neovim config (e.g., ~/.config/nvim/lua/config/keymaps.lua)
+vim.keymap.set('n', '<leader>gm', '<cmd>TermExec cmd="git-massage"<CR>', {
+    desc = "Generate commit message with git-massage"
+})
+```
+
+### Option 2: Direct Buffer Insertion (--print-only)
+
+Insert the generated message directly into your current buffer:
+
+```lua
+-- In your Neovim config
+vim.api.nvim_create_user_command('GitMassage', function()
+  -- Generate message using --print-only mode
+  local handle = io.popen("git-massage --print-only 2>/dev/null")
+  local result = handle:read("*a")
+  handle:close()
+
+  -- Insert at cursor position
+  if result and result ~= "" then
+    vim.api.nvim_put(vim.split(result, "\n"), 'c', true, true)
+  else
+    vim.notify("Failed to generate commit message", vim.log.levels.ERROR)
+  end
+end, {})
+
+-- Bind to a key
+vim.keymap.set('n', '<leader>gc', '<cmd>GitMassage<CR>', {
+    desc = "Insert git-massage commit message"
+})
+```
+
+### Option 3: Git Commit Integration
+
+Automatically populate Git commit messages in fugitive or vim-fugitive buffers:
+
+```lua
+-- Auto-populate commit message in git commit buffers
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "gitcommit",
+    callback = function()
+        vim.keymap.set('n', '<leader>gm', function()
+            vim.cmd('0read !git-massage --print-only 2>/dev/null')
+        end, { buffer = true, desc = "Generate commit message" })
+    end,
+})
+```
+
 ## Configuration
 Configuration is stored in `~/.config/git-massage/config.toml`.
 
@@ -77,7 +147,14 @@ Configuration is stored in `~/.config/git-massage/config.toml`.
 openai_api_key = "sk-..."
 model = "gpt-4o"
 max_diff_lines = 500
+exclude_files = ["*-lock.json", "*.lock", "go.sum", "*.svg"]
 ```
+
+**Available Options:**
+- `openai_api_key`: Your OpenAI API key (can also use `OPENAI_API_KEY` env var)
+- `model`: OpenAI model to use (default: "gpt-4o")
+- `max_diff_lines`: Maximum lines of diff to send to AI
+- `exclude_files`: Glob patterns for files to exclude from diff (reduces noise and saves tokens)
 
 ## Development
 
