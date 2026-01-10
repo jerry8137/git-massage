@@ -2,7 +2,13 @@ import typer
 from rich.prompt import Prompt
 from typing import Optional
 from git_massage import config, git, ai
-from git_massage.utils import console, print_error, print_success, print_info
+from git_massage.utils import (
+    print_error,
+    print_success,
+    print_info,
+    set_print_only_mode,
+    get_console,
+)
 
 app = typer.Typer(
     name="git-massage",
@@ -16,7 +22,7 @@ def setup():
     """
     Configure git-massage (e.g., set API key).
     """
-    console.print("[bold]git-massage setup[/bold]")
+    get_console().print("[bold]git-massage setup[/bold]")
 
     api_key = Prompt.ask("Enter your OpenAI API Key", password=True)
     if api_key:
@@ -33,10 +39,19 @@ def main(
     model: Optional[str] = typer.Option(None, help="Override the AI model to use."),
     api_key: Optional[str] = typer.Option(None, help="Override OpenAI API Key."),
     setup_mode: bool = typer.Option(False, "--setup", help="Run setup wizard."),
+    print_only: bool = typer.Option(
+        False,
+        "--print-only",
+        help="Print message to stdout only (for editor integration).",
+    ),
 ):
     """
     Generate a commit message from staged changes.
     """
+    # Enable --print-only mode early (before any Rich output)
+    if print_only:
+        set_print_only_mode(True)
+
     if setup_mode:
         setup()
         raise typer.Exit()
@@ -61,14 +76,8 @@ def main(
             raise typer.Exit(code=1)
 
     try:
-        # Exclude lockfiles
-        excludes = [
-            "package-lock.json",
-            "uv.lock",
-            "poetry.lock",
-            "yarn.lock",
-            "go.sum",
-        ]
+        # Get exclude list from config (uses defaults if not specified)
+        excludes = cfg.get("exclude_files", config.DEFAULT_CONFIG["exclude_files"])
         diff = git.get_staged_diff(exclude_files=excludes)
     except git.GitError as e:
         print_error(str(e))
@@ -84,19 +93,30 @@ def main(
         diff = diff[:max_chars] + "\n[Diff truncated]"
         print_info("Diff is large, truncated for AI context.")
 
+    # Track regenerate hint for subsequent generations
+    regenerate_hint = None
+
     while True:
-        with console.status(
+        with get_console().status(
             f"Generating commit message using {current_model}...", spinner="dots"
         ):
             try:
-                message = ai.generate_message(diff, current_model, current_api_key)
+                message = ai.generate_message(
+                    diff, current_model, current_api_key, regenerate_hint
+                )
             except Exception:
                 raise typer.Exit(code=1)
 
-        console.print("\n[bold]Generated Commit Message:[/bold]")
-        console.print(f"[dim]{'-' * 40}[/dim]")
-        console.print(message)
-        console.print(f"[dim]{'-' * 40}[/dim]\n")
+        # If --print-only mode, just print the message to stdout and exit
+        if print_only:
+            print(message)  # Pure stdout, no Rich formatting
+            raise typer.Exit(code=0)
+
+        # Continue with interactive mode
+        get_console().print("\n[bold]Generated Commit Message:[/bold]")
+        get_console().print(f"[dim]{'-' * 40}[/dim]")
+        get_console().print(message)
+        get_console().print(f"[dim]{'-' * 40}[/dim]\n")
 
         choice = Prompt.ask(
             "Action",
@@ -106,7 +126,9 @@ def main(
             show_default=False,
         ).lower()
 
-        console.print("[dim]Options: [c]ommit, [e]dit, [r]egenerate, [q]uit[/dim]")
+        get_console().print(
+            "[dim]Options: [c]ommit, [e]dit, [r]egenerate, [q]uit[/dim]"
+        )
 
         if choice == "c":
             try:
@@ -129,6 +151,11 @@ def main(
                 print_info("Edit cancelled (empty message).")
 
         elif choice == "r":
+            # Prompt for optional hint
+            hint = Prompt.ask(
+                "Add guidance for regeneration? (press Enter to skip)", default=""
+            )
+            regenerate_hint = hint if hint else None
             continue
 
         elif choice == "q":
