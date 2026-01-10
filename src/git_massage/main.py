@@ -14,6 +14,7 @@ app = typer.Typer(
     name="git-massage",
     help="Automate semantic git commit messages using OpenAI.",
     add_completion=False,
+    no_args_is_help=False,  # Allow default behavior when no args
 )
 
 
@@ -34,8 +35,9 @@ def setup():
     print_success(f"Default model set to {model}.")
 
 
-@app.command()
-def main(
+@app.callback(invoke_without_command=True)
+def default_command(
+    ctx: typer.Context,
     model: Optional[str] = typer.Option(None, help="Override the AI model to use."),
     api_key: Optional[str] = typer.Option(None, help="Override OpenAI API Key."),
     setup_mode: bool = typer.Option(False, "--setup", help="Run setup wizard."),
@@ -48,6 +50,9 @@ def main(
     """
     Generate a commit message from staged changes.
     """
+    # Skip default behavior if subcommand was invoked
+    if ctx.invoked_subcommand is not None:
+        return
     # Enable --print-only mode early (before any Rich output)
     if print_only:
         set_print_only_mode(True)
