@@ -4,9 +4,7 @@ Automate semantic git commit messages using OpenAI. `git-massage` analyzes your 
 
 ## Demo
 
-<p align="center" width="100%">
-<video src="assets/git-massage-demo.mp4" controls width="80%"></video>
-</p>
+![demo video](https://github.com/jerry8137/git-massage/raw/master/assets/demo.gif "Demo")
 
 ## Features
 
