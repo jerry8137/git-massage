@@ -2,6 +2,10 @@
 
 Automate semantic git commit messages using OpenAI. `git-massage` analyzes your staged changes and generates high-quality, convention-compliant commit messages, saving you time and ensuring a clean git history.
 
+## Demo
+
+<video src="assets/git-massage-demo.mp4" controls width="800"></video>
+
 ## Features
 
 - **Zero-Friction**: Automatically runs `git diff --cached` to analyze staged changes.
