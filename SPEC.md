@@ -1,169 +1,171 @@
 # git-massage
 1. Overview
-git-massage is a command-line interface (CLI) tool written in Python. It automates the generation of high-quality, convention-compliant Git commit messages by analyzing staged changes in a repository. It leverages the OpenAI API to summarize code changes and enforces the Conventional Commits specification.
+git-massage is a Python-based CLI tool that generates semantic Git commit messages from staged changes using the OpenAI API.
+
+It differentiates itself from other tools by treating the Edit Loop as a first-class citizen—users are expected to review and "massage" the AI's output in their preferred editor before committing. It is built on a modern Python stack (uv, typer, rich) and is designed to be easily integrated into Neovim workflows.
 
 2. Goals & Principles
-Zero-Friction: The tool must be faster and easier than writing a commit message manually.
+The "Massage" Philosophy: AI gets you 80% of the way there; the user perfects the last 20%. The tool must facilitate easy editing.
 
-Convention Compliant: Strictly adhere to Conventional Commits (e.g., feat:, fix:, chore:) by default.
+Editor Agnostic: Works seamlessly with $EDITOR (Vim, Neovim, Nano, VS Code).
 
-Modern Stack: Built using uv for package/project management and Typer for the CLI interface.
+Integration Ready: Must support a "pipe mode" (stdout only) for integration with Neovim plugins or other automation tools.
 
-Privacy-First: User must explicitly confirm the message before committing. Large diffs or sensitive files (lockfiles) should be truncated or excluded.
+Convention Compliant: Strictly enforces Conventional Commits (e.g., feat:, fix:).
 
-3. User Stories
-As a developer, I want to run git-massage and have it automatically detect my staged changes so I don't have to copy-paste diffs.
+Modern Stack: Built using uv for package management and Typer for the CLI.
 
-As a developer, I want the generated message to follow the format <type>(<scope>): <subject> with an optional body, so my git history remains clean.
-
-As a developer, I want to edit the generated message before finalizing the commit in case the AI missed a detail.
-
-As a developer, I need to configure my OpenAI API key once and have it persist across sessions.
-
-As a developer, I want to customize the "focus" (e.g., "be funny", "be professional", "focus on performance") via a configuration flag or file.
-
-4. Technical Architecture
-4.1. Tech Stack
+3. Architecture
+3.1. Tech Stack
 Language: Python 3.12+
 
-Package Manager: uv (for dependency resolution and environment management).
+Project Manager: uv (standard app layout).
 
-CLI Framework: Typer (with Rich for pretty terminal output).
+CLI Framework: Typer (Interface) + Rich (Spinners/Tables).
 
-Git Interface: subprocess (calling native git commands directly to avoid heavy dependencies like GitPython).
+AI Client: openai (Official Python SDK).
 
-AI Provider: OpenAI API (Client openai).
+Git Interaction: subprocess (calling git binary directly).
 
-4.2. Project Structure
-The project should follow the standard uv application layout:
-
+3.2. Directory Structure
 Plaintext
 
 git-massage/
-├── pyproject.toml       # Dependencies and tool configuration
+├── pyproject.toml       # Dependencies (typer, rich, openai, tomli-w)
 ├── README.md
-├── .gitignore
-├── .env                 # Local secrets (not committed)
-└── src/
+├── src/
     └── git_massage/
         ├── __init__.py
-        ├── main.py      # Entry point (Typer app)
-        ├── git.py       # Git subprocess wrappers
-        ├── ai.py        # OpenAI API interaction logic
-        ├── config.py    # Configuration management
-        └── utils.py     # Helper functions (logging, formatting)
-5. Functional Requirements
-5.1. Configuration Management
-The tool must look for configuration in the following order of precedence:
+        ├── main.py      # CLI Entry point
+        ├── git.py       # Git wrapper (diffs, commits)
+        ├── ai.py        # OpenAI interaction
+        ├── config.py    # Config loader (TOML + Env)
+        └── utils.py     # Formatting helpers
+4. Functional Requirements
+4.1. Configuration
+The tool loads config from ~/.config/git-massage/config.toml (XDG compliant). Fields:
 
-Command Line Args (e.g., --api-key, --model).
+api_key: String (Required).
 
-Environment Variables (OPENAI_API_KEY, GIT_MASSAGE_MODEL).
+model: String (Default: gpt-4o).
 
-Config File (~/.config/git-massage/config.toml or XDG compliant path).
+prompt_style: String (Default: "concise").
 
-Required Config:
+exclude_files: List[String] (Default: ["*-lock.json", "*.lock", "go.sum", "*.svg"]).
 
-openai_api_key: String (Required)
+4.2. Git Integration
+Staged Changes Only: The tool must run git diff --cached to see only what will be committed.
 
-model: String (Default: gpt-4o, Fallback: gpt-3.5-turbo)
+Noise Filtering: Before sending the diff to the AI, filter out:
 
-max_diff_lines: Integer (Default: 500 to save tokens)
+Files matching exclude_files (lockfiles are noise).
 
-5.2. Git Integration
-Check Staged Changes: Run git diff --cached to retrieve the diff.
+Deleted files (send only the filename, not the diff content).
 
-Edge Case: If no changes are staged, exit with a helpful error message: "No staged changes found. Did you run 'git add'?"
+Binary files.
 
-Exclude Lockfiles: Automatically exclude package-lock.json, uv.lock, poetry.lock, yarn.lock, and go.sum from the diff context sent to the AI to prevent token waste.
+4.3. Modes of Operation
+Mode A: Interactive (Default)
+Analyze: Read staged diff.
 
-5.3. AI Prompt Engineering
-The prompt sent to OpenAI must be structured to ensure valid JSON or strict text output.
+Generate: Call OpenAI with a spinner ("Thinking...").
 
+Preview: Display the generated message in a formatted box.
+
+Action Menu:
+
+[c]ommit: Execute git commit -m "...".
+
+[e]dit: Open the message in $EDITOR (temp file). When the editor closes, read the file back and update the message.
+
+[r]egenerate: Re-run the prompt (optionally ask user for a "hint" e.g., "Focus on the API change").
+
+[q]uit: Exit without committing.
+
+Mode B: Pipe/Raw (--print-only)
+Purpose: For Neovim/Plugin integration.
+
+Behavior:
+
+Read staged diff.
+
+Generate message.
+
+Print only the raw message to stdout.
+
+Exit with code 0.
+
+Crucial: No spinners, no logs, no ANSI colors in stdout. All logs must go to stderr.
+
+4.4. AI Prompt Engineering
 System Prompt:
 
-You are a helpful assistant that writes semantic Git commit messages. You must output the message following the Conventional Commits specification. Format: <type>(<optional-scope>): <subject> Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. Rules:
+You are an expert developer. Generate a commit message following Conventional Commits. Format: <type>(<scope>): <subject> followed by a blank line and a bulleted body if necessary.
 
-Use imperative mood ("add" not "added").
+Types: feat, fix, docs, style, refactor, test, chore.
 
-First line max 72 characters.
+Subject: Imperative mood, max 72 chars.
 
-If the changes are significant, add a bulleted body description.
+Body: Explain what and why, not just how.
 
-Do not output markdown code blocks (```). Just the raw message.
+IMPORTANT: Return strictly the message. No markdown blocks (```).
 
-5.4. CLI Workflow
-Init: User runs git-massage.
+5. Implementation Plan
+Phase 1: Core & Git
+Initialize with uv init --app.
 
-Validation: Tool checks for API Key. If missing, prompts user to enter it and saves it to ~/.config/git-massage/config.toml.
+Implement git.py: get_staged_diff(), commit(msg).
 
-Analysis: Tool reads staged git diff.
+Implement Git noise filtering (strip lockfiles from the diff string).
 
-Thinking: Show a spinner (via rich.console) while waiting for API response.
+Phase 2: AI & Config
+Implement config.py using tomli/tomllib.
 
-Review:
+Implement ai.py:
 
-Display the generated message.
+Handle OpenAIError gracefully.
 
-Options: [c]ommit, [e]dit, [r]egenerate, [q]uit.
+Implement the prompt logic.
 
-Action:
+Phase 3: The Interactive CLI
+Build main.py with Typer.
 
-Commit: Runs git commit -m "...".
+Implement the Edit Loop:
 
-Edit: Opens the message in the user's $EDITOR (or vim/nano fallback).
+Use typer.edit() or subprocess.call([editor, temp_file]).
 
-Regenerate: Resends request to OpenAI (optional: allow user to provide a hint like "focus on the API change").
+This is the critical "Massage" feature. Ensure the user can edit, save, and then the tool confirms the new message before committing.
 
-6. Implementation Steps
-Phase 1: Setup
-Initialize project: uv init --app --package git-massage.
+Phase 4: Neovim Support (--print-only)
+Add a flag git-massage --print-only.
 
-Add dependencies: uv add typer[all] openai rich tomli-w (and tomli if python < 3.11).
+Ensure rich.console is configured to write to stderr when this flag is active, so stdout remains pure text.
 
-Create the directory structure.
+6. Neovim Integration Guide (For README)
+Add this section to the generated README so users know how to use it.
 
-Phase 2: Core Logic
-Implement git.py: Functions to get_staged_diff() and commit(message).
+Option 1: Floating Terminal Use toggleterm.nvim or similar to run git-massage in a popup window.
 
-Implement config.py: Logic to load/save TOML config and handle env vars.
+Lua
 
-Implement ai.py: Function generate_message(diff, model) that calls OpenAI.
+-- Lua config example
+vim.keymap.set('n', '<leader>gm', '<cmd>TermExec cmd="git-massage"<CR>')
+Option 2: Native Buffer Integration Use the --print-only flag to insert the message into your current buffer (e.g., inside a fugitive window or a blank commit buffer).
 
-Phase 3: The CLI
-Build main.py using Typer.
+Lua
 
-Create the main command.
+vim.api.nvim_create_user_command('GitMassage', function()
+  local handle = io.popen("git-massage --print-only")
+  local result = handle:read("*a")
+  handle:close()
+  -- Insert result at cursor
+  vim.api.nvim_put(vim.split(result, "\n"), 'c', true, true)
+end, {})
+7. Success Criteria
+Running git-massage on a repository with staged changes opens a TUI.
 
-Add the interactive loop (Commit/Edit/Regenerate).
+The generated message follows feat: ... format.
 
-Phase 4: Polish
-Add specific handling for AuthenticationError (OpenAI) and GitCommandError.
+Pressing e opens Vim/Nano, user changes text, saves, and the tool captures the edit.
 
-Implement the "Edit" functionality using typer.edit().
-
-Add a --setup command to easily configure keys.
-
-7. Example Usage
-Bash
-
-# 1. Normal usage (uses env var or config file)
-$ git add .
-$ git-massage
-
-# 2. First time setup
-$ git-massage --setup
-
-# 3. Override model
-$ git-massage --model gpt-4-turbo
-8. Safety & Limits
-Token Limit: If the diff exceeds 4000 characters, truncate it and append a note to the system prompt: "[Diff truncated]".
-
-Secrets: Do not attempt to scrub secrets (too complex for MVP), but warn the user in the README that staged code is sent to OpenAI.
-
-9. Future Improvements (Post-MVP)
-Support for git hook installation (prepare-commit-msg).
-
-Support for local LLMs (Ollama) via a --provider flag.
-
-Custom system prompts per repository (reading from .git-massage in repo root).
+Running git-massage --print-only > msg.txt creates a file containing only the commit message, no logs.
