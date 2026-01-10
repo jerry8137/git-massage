@@ -176,5 +176,12 @@ uv run ruff check .
 uv run ruff format .
 ```
 
+## Related Projects
+
+There are other great AI-powered commit message tools in the ecosystem:
+
+- [OpenCommit](https://github.com/marketplace/actions/opencommit-improve-commits-with-ai) - GitHub Action for improving commits with AI
+- [ai-commit](https://github.com/insulineru/ai-commit) - AI-powered commit message generator
+
 ## License
 [MIT](LICENSE)
