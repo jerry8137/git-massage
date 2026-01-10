@@ -65,7 +65,8 @@ uv run ruff format .
 The codebase follows a clean separation of concerns across 5 core modules in `src/git_massage/`:
 
 1. **main.py** - Entry point and CLI orchestration
-   - Typer app definition with two commands: `setup()` and `main()`
+   - Typer app definition with default callback (`default_command()`) and `setup` subcommand
+   - Default behavior: runs commit message generation when no subcommand specified
    - Interactive loop handling user choices: [c]ommit, [e]dit, [r]egenerate, [q]uit
    - `--print-only` flag for editor integration (Neovim) - outputs pure message to stdout
    - Regenerate hint support: prompts for optional guidance when regenerating
