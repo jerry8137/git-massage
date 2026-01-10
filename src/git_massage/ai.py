@@ -1,4 +1,5 @@
 import openai
+from typing import Optional
 from git_massage.utils import print_error
 
 SYSTEM_PROMPT = """You are a helpful assistant that writes semantic Git commit messages. You must output the message following the Conventional Commits specification. Format: <type>(<optional-scope>): <subject> Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. Rules:
@@ -13,21 +14,25 @@ Do not output markdown code blocks (```). Just the raw message.
 """
 
 
-def generate_message(diff: str, model: str, api_key: str) -> str:
+def generate_message(
+    diff: str, model: str, api_key: str, hint: Optional[str] = None
+) -> str:
     if not diff.strip():
         return ""
 
     client = openai.OpenAI(api_key=api_key)
+
+    # Build user message with optional hint
+    user_content = f"Generate a commit message for the following diff:\n\n{diff}"
+    if hint:
+        user_content += f"\n\nAdditional guidance: {hint}"
 
     try:
         response = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": f"Generate a commit message for the following diff:\n\n{diff}",
-                },
+                {"role": "user", "content": user_content},
             ],
             temperature=1,
         )
