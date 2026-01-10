@@ -9,8 +9,14 @@ CONFIG_DIR = Path.home() / ".config" / APP_NAME
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 
 DEFAULT_CONFIG = {
-    "model": "gpt-5-nano",
+    "model": "gpt-4o",
     "max_diff_lines": 500,
+    "exclude_files": [
+        "*-lock.json",
+        "*.lock",
+        "go.sum",
+        "*.svg",
+    ],
 }
 
 
