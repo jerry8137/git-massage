@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
         "go.sum",
         "*.svg",
     ],
+    "use_gitmoji": True,
 }
 
 
