@@ -46,6 +46,12 @@ def default_command(
         "--print-only",
         help="Print message to stdout only (for editor integration).",
     ),
+    message_hint: Optional[str] = typer.Option(
+        None,
+        "-m",
+        "--message",
+        help="Hint to guide LLM when generating commit message.",
+    ),
 ):
     """
     Generate a commit message from staged changes.
@@ -99,7 +105,9 @@ def default_command(
         print_info("Diff is large, truncated for AI context.")
 
     # Track regenerate hint for subsequent generations
-    regenerate_hint = None
+    # Use message_hint from CLI if provided
+    regenerate_hint = message_hint
+    first_generation = True
 
     while True:
         with get_console().status(
@@ -116,6 +124,13 @@ def default_command(
         if print_only:
             print(message)  # Pure stdout, no Rich formatting
             raise typer.Exit(code=0)
+
+        # Auto-open editor on first generation if -m hint was provided
+        if message_hint and first_generation:
+            first_generation = False
+            edited_message = typer.edit(message)
+            if edited_message:
+                message = edited_message.strip()
 
         # Continue with interactive mode
         get_console().print("\n[bold]Generated Commit Message:[/bold]")
