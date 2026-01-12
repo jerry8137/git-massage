@@ -8,6 +8,12 @@ Automate semantic git commit messages using OpenAI. `git-massage` analyzes your 
 
 ## Features
 
+- **Gitmoji Support**: Commit messages with emojis! Because [if your commit messages don't have emojis, how would anyone know how you feel?](https://youtu.be/hwG89HH0VcM?si=bpkqVIOk8yhsnU2q&t=75)
+  ```
+  ✨ feat(auth): add OAuth2 login flow
+  🐛 fix(api): handle null response from upstream
+  📝 docs: update README with gitmoji examples
+  ```
 - **Zero-Friction**: Automatically runs `git diff --cached` to analyze staged changes.
 - **Conventional Commits**: Generates messages in `<type>(<scope>): <subject>` format (e.g., `feat(auth): add login endpoint`).
 - **Interactive Workflow**:
@@ -152,6 +158,7 @@ openai_api_key = "sk-..."
 model = "gpt-4o"
 max_diff_lines = 500
 exclude_files = ["*-lock.json", "*.lock", "go.sum", "*.svg"]
+use_gitmoji = true
 ```
 
 **Available Options:**
@@ -159,6 +166,7 @@ exclude_files = ["*-lock.json", "*.lock", "go.sum", "*.svg"]
 - `model`: OpenAI model to use (default: "gpt-4o")
 - `max_diff_lines`: Maximum lines of diff to send to AI
 - `exclude_files`: Glob patterns for files to exclude from diff (reduces noise and saves tokens)
+- `use_gitmoji`: Enable emoji prefixes in commit messages (default: `true`)
 
 ## Development
 
