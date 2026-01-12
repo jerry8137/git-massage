@@ -72,6 +72,7 @@ def default_command(
     # Overrides
     current_model = model or cfg.get("model", "gpt-4o")
     current_api_key = api_key or config.get_api_key(cfg)
+    use_gitmoji = cfg.get("use_gitmoji", True)
 
     if not current_api_key:
         print_error("OpenAI API Key not found.")
@@ -115,7 +116,7 @@ def default_command(
         ):
             try:
                 message = ai.generate_message(
-                    diff, current_model, current_api_key, regenerate_hint
+                    diff, current_model, current_api_key, regenerate_hint, use_gitmoji
                 )
             except Exception:
                 raise typer.Exit(code=1)
